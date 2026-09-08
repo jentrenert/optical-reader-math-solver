@@ -389,25 +389,26 @@ class BotCore:
 
     def preprocess_for_ocr(self, np_img):
         """
-        Zero-copy pre-processing pipeline.
+                Pre-process the user-selected question box for small-glyph OCR.
         Accepts the raw BGRA numpy array directly from mss (no PIL conversion).
 
           1. BGRA → greyscale in one pass (avoids the old RGB→BGR→grey double-convert)
           2. Gaussian blur 3×3 — remove compression noise before sharpening
           3. Unsharp mask — sharpen digit edges without ringing artefacts
           4. CLAHE (cached) — adaptive local contrast for uneven lighting
-          5. Otsu threshold — auto-selects the optimal cut-point per frame
+                    5. 2x cubic upscale — gives EasyOCR more pixels for small digits
 
-        No 2× upscale: EasyOCR processing scales quadratically so the upscale
-        was the single biggest performance killer.
+                Keep grayscale detail instead of forcing every pixel through a hard
+                binary threshold. The selected red box is already the spatial filter;
+                preserving anti-aliased edges makes the difference between `8`, `3`,
+                and `)` much clearer at this small capture size.
         """
         gray     = cv2.cvtColor(np_img, cv2.COLOR_BGRA2GRAY)
         blurred  = cv2.GaussianBlur(gray, (3, 3), 0)
         sharp    = cv2.addWeighted(gray, 1.5, blurred, -0.5, 0)
         enhanced = self._clahe.apply(sharp)
-        _, thresh = cv2.threshold(enhanced, 0, 255,
-                                  cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        return thresh
+        return cv2.resize(enhanced, None, fx=2.0, fy=2.0,
+                          interpolation=cv2.INTER_CUBIC)
 
     # ── OCR operator disambiguation (runs BEFORE normalisation) ─────────────────
     # EasyOCR sometimes misreads this UI's '÷' glyph (dot / bar / dot) as '+'.
@@ -537,6 +538,48 @@ class BotCore:
                           f"{label}  corrected operator: '+'")
             tokens.append("".join(chars))
         return " ".join(tokens)
+
+    def select_math_ocr_text(self, ocr_results, full_image):
+        """Choose the most plausible solvable expression from OCR tokens.
+
+        EasyOCR can return dates, labels, and several fragments when the red
+        box is slightly misplaced. Feeding all of those fragments to the
+        solver creates false expressions. Prefer short adjacent token groups
+        that contain an operator, are not date-shaped, and solve cleanly.
+        Return an empty string when no candidate is credible.
+        """
+        tokens = []
+        for item in ocr_results:
+            token = self.correct_ocr_operators([item], full_image).strip()
+            if token:
+                tokens.append(token)
+
+        candidates = []
+        for start in range(len(tokens)):
+            for end in range(start + 1, min(len(tokens), start + 4) + 1):
+                candidates.append(" ".join(tokens[start:end]))
+
+        best = None
+        best_score = None
+        for candidate in candidates:
+            if re.search(r"^\s*\d{1,4}\s*/\s*\d{1,2}\s*/\s*\d{1,4}\s*$", candidate):
+                continue
+            if not re.search(r"[+*/-]", candidate) or not re.search(r"\d", candidate):
+                continue
+            norm = self.normalise(candidate)
+            if self.fast_mode:
+                norm = re.sub(r'[=?]', '', norm).strip()
+            if not norm or len(re.findall(r"\d+", norm)) > 3:
+                continue
+            if self.solve_algebra(norm) is None:
+                continue
+            score = (len(norm), -start)
+            if best_score is None or score > best_score:
+                best, best_score = candidate, score
+
+        if best is not None:
+            return best
+        return ""
 
     # ── Normalisation ─────────────────────────────────────────────────────────
 

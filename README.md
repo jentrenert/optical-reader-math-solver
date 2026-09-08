@@ -69,6 +69,11 @@ cd mathimatical_bot-main
 python gui.py
 ```
 
+The red overlay is the live OCR capture box. In **Advanced > Edit Layout**,
+place it tightly around only the math expression; unrelated labels or dates
+inside that box can be rejected as noise, but they still reduce recognition
+quality.
+
 or on Windows, just run `launch_solver.bat`, which auto-detects a working Python 3.10–3.13 interpreter and installs missing dependencies for you.
 
 `F8` toggles pause/resume globally.

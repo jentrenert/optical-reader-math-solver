@@ -1130,7 +1130,13 @@ class OpticalReaderSolverGUI:
                 result = self.core.reader.readtext(
                     arr,
                     allowlist='0123456789+-*/()=?xX×÷: ',
-                    low_text=0.3, batch_size=1, paragraph=False, min_size=5
+                    low_text=0.25,
+                    text_threshold=0.65,
+                    link_threshold=0.3,
+                    mag_ratio=1.0,
+                    batch_size=1,
+                    paragraph=False,
+                    min_size=8
                 )
 
                 answer, source = None, None
@@ -1140,7 +1146,7 @@ class OpticalReaderSolverGUI:
                     # see correct_ocr_operators()'s docstring. `arr` is
                     # the same binarized frame already used for OCR, so
                     # bbox coordinates line up with it directly.
-                    raw = self.core.correct_ocr_operators(result, arr)
+                    raw = self.core.select_math_ocr_text(result, arr)
                     if raw != self.core.last_question:
                         self.core.last_question = raw
                         answer, source = self.core.handle_question(raw)
