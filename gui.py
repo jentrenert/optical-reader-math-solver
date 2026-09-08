@@ -37,28 +37,28 @@ GWL_EXSTYLE       = -20
 # visually consistent and themeable from one place.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Colour — dark utility palette. The purple accent is the one saturated
-# colour in the UI; everything else is either neutral or a single-purpose
-# status colour (success/warning/danger), so nothing competes with it.
-C_BG          = "#14141c"   # app background
-C_SURFACE     = "#1c1c28"   # primary card
-C_SURFACE_ALT = "#20202e"   # secondary panel (advanced area, modals)
-C_BORDER      = "#32324a"   # card/section border
-C_DIVIDER     = "#26263a"   # hairline between rows within a card
+# Colour — soft graphite surfaces with a restrained teal accent. The lower
+# contrast between neighboring surfaces makes the dense utility layout easier
+# to scan without weakening the important status colours.
+C_BG          = "#11171b"   # app background
+C_SURFACE     = "#1a2227"   # primary card
+C_SURFACE_ALT = "#202b31"   # secondary panel (advanced area, modals)
+C_BORDER      = "#2d3a40"   # card/section border
+C_DIVIDER     = "#253138"   # hairline between rows within a card
 
-C_ACCENT       = "#7c6af7"  # primary accent — mode selection, primary button
-C_ACCENT_HOVER = "#9384fa"
+C_ACCENT       = "#5caaa2"  # primary accent — mode selection, primary button
+C_ACCENT_HOVER = "#73bcb4"
 
-C_GREEN   = "#4ade80"   # success / running / enabled
-C_GREEN_BG = "#1c3326"
-C_RED     = "#f87171"   # danger / paused / disabled
-C_RED_BG  = "#3a2222"
-C_ORANGE  = "#fbbf24"   # warning — used sparingly, never as a default state
-C_CYAN    = "#67e8f9"   # informational accent — "live" indicator only
+C_GREEN   = "#72c69a"   # success / running / enabled
+C_GREEN_BG = "#1d342c"
+C_RED     = "#e58b86"   # danger / paused / disabled
+C_RED_BG  = "#382525"
+C_ORANGE  = "#e4b46a"   # warning — used sparingly, never as a default state
+C_CYAN    = "#7cc9cf"   # informational accent — "live" indicator only
 
-C_FG        = "#e6e6f0"  # primary text
-C_MUTED     = "#8a8aa3"  # secondary text / labels
-C_MUTED_DIM = "#5c5c73"  # tertiary / helper text
+C_FG        = "#e2e9e9"  # primary text
+C_MUTED     = "#98a9ad"  # secondary text / labels
+C_MUTED_DIM = "#687b80"  # tertiary / helper text
 
 # Typography — one Windows-safe family; hierarchy comes from size/weight,
 # not from mixing typefaces. A monospace face is used only where alignment
