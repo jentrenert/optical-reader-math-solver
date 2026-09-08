@@ -181,8 +181,10 @@ AUTO_AREA_3        = apply_scaling_and_offset_xy(*ORIGINAL_AUTO_AREA_3)
 # ── Polling / timing constants ───────────────────────────────────────────────
 FAST_MODE_POLLING     = 10    # ms
 STANDARD_MODE_POLLING    = 150   # ms
-KEY_PRESS_DELAY       = 0     # s between digit clicks
-POST_ANSWER_DELAY     = 0     # s after OK click
+# Give the target UI time to render each keypad press. Zero-delay Win32 input
+# can be issued faster than the page/application processes its own events.
+KEY_PRESS_DELAY       = 0.1   # s between digit clicks
+POST_ANSWER_DELAY     = 0.1   # s after OK click
 TASKBAR_CHECK_INTERVAL = 2000 # ms
 PREVIEW_UPDATE_INTERVAL = 5   # loop iterations between preview refreshes
 
