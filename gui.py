@@ -11,6 +11,8 @@ import hashlib
 import numpy as np
 import ctypes
 import datetime
+import os
+import re
 import time
 
 from bot_core import (
@@ -29,6 +31,8 @@ import bot_core  # for the mutable globals QUESTION_AREA etc.
 WS_EX_TRANSPARENT = 0x00000020
 WS_EX_LAYERED     = 0x00080000
 GWL_EXSTYLE       = -20
+OCR_CAPTURE_DIR   = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "ocr_captures")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Design tokens — the single source of truth for every colour/font/spacing
@@ -505,6 +509,26 @@ class OpticalReaderSolverGUI:
         """
         self.detected_label.config(text=expr if expr else "—")
         self.result_label.config(text=str(answer) if answer is not None else "—")
+
+    def _save_ocr_capture(self, sct_img, processed, raw_text, answer, source):
+        """Save the exact OCR crop and the image passed to EasyOCR."""
+        if answer is None:
+            return
+        try:
+            os.makedirs(OCR_CAPTURE_DIR, exist_ok=True)
+            stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            safe_text = re.sub(r"[^A-Za-z0-9+*/=-]+", "_", raw_text).strip("_")
+            safe_text = (safe_text[:60] or "unknown")
+            prefix = f"{stamp}_{safe_text}_answer-{answer}_{source}"
+
+            original = Image.frombytes(
+                "RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+            original.save(os.path.join(OCR_CAPTURE_DIR, prefix + "_original.png"))
+            Image.fromarray(processed).save(
+                os.path.join(OCR_CAPTURE_DIR, prefix + "_processed.png"))
+            print(f"[GUI] OCR capture saved: {prefix}")
+        except Exception as exc:
+            print(f"[GUI] OCR capture save failed: {exc}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Solver mode
@@ -1126,6 +1150,11 @@ class OpticalReaderSolverGUI:
                     cached_answer, cached_source = self.frame_answer_cache[current_hash]
                     if cached_answer is not None and self.core.last_question == "":
                         print(f"[GUI] [FRAME CACHE] {cached_answer}")
+                        cached_processed = self.core.preprocess_for_ocr(
+                            np.array(sct_img))
+                        self._save_ocr_capture(
+                            sct_img, cached_processed, "frame-cache",
+                            cached_answer, cached_source)
                         click_result = self.core.click_answer(cached_answer, cached_source)
                         # Only arm confirmation for a VERIFIED click — click_answer()
                         # can return "known but not submitted" (automation off,
@@ -1175,6 +1204,7 @@ class OpticalReaderSolverGUI:
                         self.core.last_question = raw
                         answer, source = self.core.handle_question(raw)
                         self._update_detected_display(raw, answer)
+                        self._save_ocr_capture(sct_img, arr, raw, answer, source)
                         # Reschedule the 50ms reset regardless of whether this
                         # reading solved — previously this only ran inside
                         # "if answer is not None", so a reading that FAILED to
