@@ -609,17 +609,36 @@ class BotCore:
         for item in ocr_results:
             token = self.correct_ocr_operators([item], full_image).strip()
             if token:
-                tokens.append(token)
+                bbox, _, _ = item
+                division_evidence = False
+                if any(ch in token for ch in '/:'):
+                    xs = [p[0] for p in bbox]
+                    ys = [p[1] for p in bbox]
+                    x1, x2 = int(min(xs)), int(max(xs))
+                    y1, y2 = int(min(ys)), int(max(ys))
+                    for index, char in enumerate(token):
+                        if char in '/:':
+                            crop = self._extract_glyph_crop(
+                                full_image, bbox, index, len(token))
+                            if self.is_division_glyph(crop):
+                                division_evidence = True
+                                break
+                tokens.append((token, division_evidence))
 
         candidates = []
         for start in range(len(tokens)):
             for end in range(start + 1, min(len(tokens), start + 4) + 1):
-                candidates.append(" ".join(tokens[start:end]))
+                group = tokens[start:end]
+                candidates.append((" ".join(token for token, _ in group),
+                                   any(evidence for _, evidence in group)))
 
         best = None
         best_score = None
-        for candidate in candidates:
+        for candidate, division_evidence in candidates:
             if re.search(r"^\s*\d{1,4}\s*/\s*\d{1,2}\s*/\s*\d{1,4}\s*$", candidate):
+                continue
+            if '/' in candidate and not division_evidence:
+                print(f"[CORE] Rejecting ambiguous division candidate: {candidate!r}")
                 continue
             if not re.search(r"[+*/-]", candidate) or not re.search(r"\d", candidate):
                 continue
