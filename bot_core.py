@@ -477,6 +477,60 @@ class BotCore:
         has_bottom = any(y > bottom_third for y in centroid_ys)
         return '/' if (has_top and has_bottom) else None
 
+    def is_division_glyph(self, glyph_crop):
+        """Return whether a glyph has the visual dot/bar/dot shape of ÷.
+
+        EasyOCR's English model is not a reliable authority for this custom
+        operator. Analyze both threshold polarities because the target UI may
+        render light glyphs on dark pixels or dark glyphs on light pixels.
+        Connected components are used only as geometric evidence, never as a
+        blanket conversion for every plus or minus sign.
+        """
+        if glyph_crop is None or glyph_crop.size == 0:
+            return False
+        gray = glyph_crop if glyph_crop.ndim == 2 else cv2.cvtColor(
+            glyph_crop, cv2.COLOR_BGR2GRAY)
+        masks = []
+        for threshold_type in (cv2.THRESH_BINARY, cv2.THRESH_BINARY_INV):
+            _, mask = cv2.threshold(gray, 0, 255, threshold_type + cv2.THRESH_OTSU)
+            masks.append(mask)
+
+        h_crop, w_crop = gray.shape[:2]
+        min_area = max(2, int(0.002 * h_crop * w_crop))
+        for mask in masks:
+            n_labels, _, stats, _ = cv2.connectedComponentsWithStats(
+                mask, connectivity=8)
+            components = []
+            for i in range(1, n_labels):
+                x, y, w, h, area = stats[i]
+                if area < min_area or h > 0.7 * h_crop:
+                    continue
+                if x <= 0 or x + w >= w_crop:
+                    continue
+                components.append((x, y, w, h, area))
+            if len(components) < 2 or len(components) > 4:
+                continue
+
+            components.sort(key=lambda item: item[1] + item[3] / 2)
+            centers = [y + h / 2 for _, y, _, h, _ in components]
+            top = [item for item, center in zip(components, centers)
+                   if center < h_crop / 3]
+            bottom = [item for item, center in zip(components, centers)
+                      if center > 2 * h_crop / 3]
+            if not top or not bottom:
+                continue
+
+            middle = [item for item, center in zip(components, centers)
+                      if h_crop / 3 <= center <= 2 * h_crop / 3]
+            if middle:
+                middle_width = max(item[2] for item in middle)
+                dot_widths = [item[2] for item in top + bottom]
+                if middle_width >= max(dot_widths) * 1.2:
+                    return True
+            elif len(components) >= 3:
+                return True
+        return False
+
     def _extract_glyph_crop(self, image, bbox, char_index, char_count):
         """
         Crop roughly one character's column range out of an EasyOCR
@@ -519,23 +573,21 @@ class BotCore:
         """
         tokens = []
         for bbox, text, conf in ocr_results:
-            if '+' not in text:
+            if not any(ch in text for ch in '+-:'):
                 tokens.append(text)
                 continue
             chars = list(text)
             for i, ch in enumerate(chars):
-                if ch != '+':
+                if ch not in '+-:':
                     continue
                 crop = self._extract_glyph_crop(full_image, bbox, i, len(chars))
-                verdict = self.classify_plus_or_division(crop)
-                if verdict == '/':
-                    print("[CORE] OCR operator: '+'  visual classification: "
-                          "division-like  corrected operator: '/'")
+                if self.is_division_glyph(crop):
+                    print(f"[CORE] OCR operator: '{ch}' visual classification: "
+                          "dot/bar/dot  corrected operator: '/'")
                     chars[i] = '/'
                 else:
-                    label = "plus-like" if verdict == '+' else "inconclusive"
-                    print(f"[CORE] OCR operator: '+'  visual classification: "
-                          f"{label}  corrected operator: '+'")
+                    print(f"[CORE] OCR operator: '{ch}' visual classification: "
+                          "not division; unchanged")
             tokens.append("".join(chars))
         return " ".join(tokens)
 
