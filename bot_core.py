@@ -183,8 +183,8 @@ FAST_MODE_POLLING     = 10    # ms
 STANDARD_MODE_POLLING    = 150   # ms
 # Give the target UI time to render each keypad press. Zero-delay Win32 input
 # can be issued faster than the page/application processes its own events.
-KEY_PRESS_DELAY       = 0.1   # s between digit clicks
-POST_ANSWER_DELAY     = 0.1   # s after OK click
+KEY_PRESS_DELAY       = 0.025 # s between digit clicks
+POST_ANSWER_DELAY     = 0.025 # s after OK click
 TASKBAR_CHECK_INTERVAL = 2000 # ms
 PREVIEW_UPDATE_INTERVAL = 5   # loop iterations between preview refreshes
 
