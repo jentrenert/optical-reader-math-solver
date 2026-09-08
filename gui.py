@@ -239,7 +239,7 @@ class OpticalReaderSolverGUI:
     def _button(self, parent, text, command, kind="secondary", **kw):
         btn = tk.Button(parent, text=text, command=command,
                         relief="flat", overrelief="flat", bd=0,
-                        highlightthickness=0, activeborderwidth=0,
+                        highlightthickness=0,
                         cursor="hand2",
                         font=kw.pop("font", F_BODY),
                         padx=SP_3, pady=SP_2, justify="center", **kw)
