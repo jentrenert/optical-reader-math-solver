@@ -118,6 +118,7 @@ class OpticalReaderSolverGUI:
         # showing only what you need for a normal run (status, preview,
         # pause/automation, mode). Everything else is one click away.
         self._advanced_visible = False
+        self.operation_vars = {}
 
         # High-speed screen capture — mss is 3-5× faster than PIL screen capture
         self._sct             = mss.mss()
@@ -423,6 +424,29 @@ class OpticalReaderSolverGUI:
         row3.columnconfigure(0, weight=1)
         row3.columnconfigure(1, weight=1)
 
+        operations_label = tk.Label(self.advanced_frame, text="Known operations",
+                                    fg=C_MUTED, bg=C_SURFACE_ALT, font=F_LABEL)
+        operations_label.pack(anchor="w", pady=(SP_2, SP_1))
+        operations_row = tk.Frame(self.advanced_frame, bg=C_SURFACE_ALT)
+        operations_row.pack(fill="x")
+        operation_defs = [
+            ("+", "Addition"), ("-", "Subtraction"),
+            ("*", "Multiply"), ("/", "Division"),
+        ]
+        for column, (operator, label) in enumerate(operation_defs):
+            var = tk.BooleanVar(value=True)
+            self.operation_vars[operator] = var
+            check = tk.Checkbutton(
+                operations_row, text=label, variable=var,
+                command=lambda op=operator: self._operation_changed(op),
+                fg=C_FG, bg=C_SURFACE_ALT,
+                activeforeground=C_FG, activebackground=C_SURFACE_ALT,
+                selectcolor=C_SURFACE, highlightthickness=0,
+                bd=0, padx=SP_1, pady=SP_1, font=F_LABEL,
+            )
+            check.grid(row=0, column=column, sticky="w")
+            operations_row.columnconfigure(column, weight=1)
+
         self.root.after_idle(self._resize_to_fit)
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -526,6 +550,14 @@ class OpticalReaderSolverGUI:
         else:
             self.lut_warn_label.pack_forget()
         print(f"[GUI] Solver mode → {mode}")
+
+    def _operation_changed(self, operator):
+        enabled = {op for op, var in self.operation_vars.items() if var.get()}
+        self.core.enabled_operations = enabled
+        self._clear_transient_state("operation filters changed")
+        names = {"+": "addition", "-": "subtraction", "*": "multiplication", "/": "division"}
+        state = "enabled" if operator in enabled else "disabled"
+        print(f"[GUI] Operation {names[operator]} {state}; active={sorted(enabled)}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Button handlers

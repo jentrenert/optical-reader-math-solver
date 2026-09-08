@@ -257,6 +257,7 @@ class BotCore:
         self.solve_mode               = MODE_HYBRID
         self.preview_enabled          = True
         self.preview_loop_counter     = 0
+        self.enabled_operations       = {'+', '-', '*', '/'}
 
         # Automation
         self.answers_count            = 0
@@ -590,6 +591,10 @@ class BotCore:
                     print(f"[CORE] OCR operator: '{ch}' visual classification: "
                           "dot/bar/dot  corrected operator: '/'")
                     chars[i] = '/'
+                elif (ch == '+' and '+' not in self.enabled_operations
+                      and '/' in self.enabled_operations):
+                    print("[CORE] OCR operator: '+'  context override: division")
+                    chars[i] = '/'
                 else:
                     print(f"[CORE] OCR operator: '{ch}' visual classification: "
                           "not division; unchanged")
@@ -612,6 +617,10 @@ class BotCore:
                 bbox, _, _ = item
                 division_evidence = False
                 if any(ch in token for ch in '/:'):
+                    if ('+' not in self.enabled_operations
+                            and '/' in self.enabled_operations
+                            and '+' in item[1]):
+                        division_evidence = True
                     xs = [p[0] for p in bbox]
                     ys = [p[1] for p in bbox]
                     x1, x2 = int(min(xs)), int(max(xs))
@@ -639,6 +648,11 @@ class BotCore:
                 continue
             if '/' in candidate and not division_evidence:
                 print(f"[CORE] Rejecting ambiguous division candidate: {candidate!r}")
+                continue
+            norm_operators = set(re.findall(r'[+\-*/]', candidate))
+            if any(operator not in self.enabled_operations
+                   for operator in norm_operators):
+                print(f"[CORE] Skipping disabled operation in {candidate!r}")
                 continue
             if not re.search(r"[+*/-]", candidate) or not re.search(r"\d", candidate):
                 continue
