@@ -82,12 +82,12 @@ SP_1, SP_2, SP_3, SP_4 = 4, 8, 12, 16
 # colours per button, so "this is primary" / "this is dangerous" reads
 # consistently everywhere.
 BTN_KINDS = {
-    "primary":   {"bg": C_ACCENT,     "fg": "#ffffff", "hover": C_ACCENT_HOVER},
-    "secondary": {"bg": C_SURFACE_ALT,"fg": C_FG,       "hover": C_BORDER},
-    "ghost":     {"bg": C_SURFACE,    "fg": C_MUTED,    "hover": C_SURFACE_ALT},
-    "success":   {"bg": C_GREEN_BG,   "fg": C_GREEN,    "hover": "#24432f"},
-    "danger":    {"bg": C_RED_BG,     "fg": C_RED,      "hover": "#472a2a"},
-    "muted_off": {"bg": C_SURFACE_ALT,"fg": C_MUTED,    "hover": C_BORDER},
+    "primary":   {"bg": "#4f918a",    "fg": "#f4fbfa", "hover": C_ACCENT_HOVER},
+    "secondary": {"bg": "#1e292f",    "fg": C_FG,       "hover": "#26343a"},
+    "ghost":     {"bg": C_SURFACE,     "fg": C_MUTED,    "hover": "#202b31"},
+    "success":   {"bg": "#20372f",    "fg": C_GREEN,    "hover": "#29463b"},
+    "danger":    {"bg": "#352729",    "fg": C_RED,      "hover": "#443033"},
+    "muted_off": {"bg": "#202a2f",    "fg": C_MUTED,    "hover": "#29363b"},
 }
 
 
@@ -182,12 +182,12 @@ class OpticalReaderSolverGUI:
         style.theme_use("clam")
         for name, bg, fg in [
             ("ModeActive.TButton",   C_ACCENT,     "#ffffff"),
-            ("ModeInactive.TButton", C_SURFACE_ALT, C_MUTED),
+            ("ModeInactive.TButton", "#1e292f", C_MUTED),
         ]:
             style.configure(name, background=bg, foreground=fg,
-                            font=F_BODY, padding=(SP_2, SP_2),
+                            font=F_BODY, padding=(SP_3, SP_2),
                             relief="flat", borderwidth=0)
-            style.map(name, background=[("active", bg)])
+            style.map(name, background=[("active", bg)], relief=[("pressed", "flat")])
 
         # Register our own window handle so the core's foreground-window
         # tracker can tell "the GUI has focus" apart from "the target app
@@ -238,7 +238,9 @@ class OpticalReaderSolverGUI:
 
     def _button(self, parent, text, command, kind="secondary", **kw):
         btn = tk.Button(parent, text=text, command=command,
-                        relief="flat", bd=0, cursor="hand2",
+                        relief="flat", overrelief="flat", bd=0,
+                        highlightthickness=0, activeborderwidth=0,
+                        cursor="hand2",
                         font=kw.pop("font", F_BODY),
                         padx=SP_3, pady=SP_2, justify="center", **kw)
         self._style_button(btn, kind)
