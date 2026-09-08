@@ -261,7 +261,10 @@ class BotCore:
         self.ready_count              = 0
         self.is_answering             = False
         self.extended_sequence_active = False
-        self.automation_enabled       = True   # toggled by the Automation button
+        # Answer/keypad clicks are always allowed when a valid answer and
+        # target window are available. This separate flag controls only the
+        # delayed AUTO 1/2/3 sequence.
+        self.auto_sequence_enabled    = True
         self.scheduled_events         = []
 
         # ── answer_cache — "ANSWERED THIS ROUND" cache ──────────────────────
@@ -914,45 +917,39 @@ class BotCore:
 
             answer_str = str(int(answer))
 
-            # ── Global safety switch ───────────────────────────────────────────
-            # This is the ONLY place that actually issues clicks for an answer,
-            # so it's the one place that must respect automation_enabled.
-            if not self.automation_enabled:
-                print(f"[CORE] [{source.upper()}] Automation OFF — not clicking {answer_str}")
-                result = CLICK_RESULT_AUTOMATION_OFF
+            # Answer clicks are independent from the optional AUTO 1/2/3
+            # sequence. The user-facing Automation toggle must never disable
+            # the keypad clicks that submit solved answers.
+            # Guard against clicking into the wrong window — e.g. the target
+            # app lost focus (alt-tab, a popup grabbed focus, the user clicked
+            # elsewhere). This only asks the OS which window currently has
+            # focus; it never reads anything from inside the target app.
+            if self.target_hwnd is not None and (
+                    ctypes.windll.user32.GetForegroundWindow() != self.target_hwnd):
+                current_hwnd = ctypes.windll.user32.GetForegroundWindow()
+                print(f"[CORE] [SKIP] Target window not focused "
+                      f"(expected {self.target_hwnd}, got {current_hwnd}) — not clicking")
+                if self.ui:
+                    self.ui.set_auto_status("⚠ Target window lost focus — not clicking", "orange")
+                result = CLICK_RESULT_WRONG_WINDOW
+
+            elif not all(d in self.key_coords for d in answer_str):
+                print(f"[CORE] [SKIP] '{answer_str}' has unmapped chars")
+                result = CLICK_RESULT_UNMAPPED_ANSWER
+
             else:
-                # Guard against clicking into the wrong window — e.g. the
-                # target app lost focus (alt-tab, a popup grabbed focus, the
-                # user clicked elsewhere). This only asks the OS which window
-                # currently has focus; it never reads anything from inside
-                # the target app itself, so it's the same "external" category
-                # as SetCursorPos — just a check instead of an action.
-                if self.target_hwnd is not None and (
-                        ctypes.windll.user32.GetForegroundWindow() != self.target_hwnd):
-                    current_hwnd = ctypes.windll.user32.GetForegroundWindow()
-                    print(f"[CORE] [SKIP] Target window not focused "
-                          f"(expected {self.target_hwnd}, got {current_hwnd}) — not clicking")
-                    if self.ui:
-                        self.ui.set_auto_status("⚠ Target window lost focus — not clicking", "orange")
-                    result = CLICK_RESULT_WRONG_WINDOW
+                print(f"[CORE] [{source.upper()}] Clicking: {answer_str}")
+                for d in answer_str:
+                    x, y = self.key_coords[d]
+                    fast_click(x, y)
+                    if KEY_PRESS_DELAY > 0:
+                        time.sleep(KEY_PRESS_DELAY)
 
-                elif not all(d in self.key_coords for d in answer_str):
-                    print(f"[CORE] [SKIP] '{answer_str}' has unmapped chars")
-                    result = CLICK_RESULT_UNMAPPED_ANSWER
-
-                else:
-                    print(f"[CORE] [{source.upper()}] Clicking: {answer_str}")
-                    for d in answer_str:
-                        x, y = self.key_coords[d]
-                        fast_click(x, y)
-                        if KEY_PRESS_DELAY > 0:
-                            time.sleep(KEY_PRESS_DELAY)
-
-                    ok_x, ok_y = self.key_coords['OK']
-                    fast_click(ok_x, ok_y)
-                    if POST_ANSWER_DELAY > 0:
-                        time.sleep(POST_ANSWER_DELAY)
-                    result = CLICK_RESULT_CLICKED
+                ok_x, ok_y = self.key_coords['OK']
+                fast_click(ok_x, ok_y)
+                if POST_ANSWER_DELAY > 0:
+                    time.sleep(POST_ANSWER_DELAY)
+                result = CLICK_RESULT_CLICKED
 
             # ── Update session cache ──────────────────────────────────────────
             # Record every answered question in the session cache (fast mode) —
@@ -1020,8 +1017,8 @@ class BotCore:
     # ── Auto-click sequence ───────────────────────────────────────────────────
 
     def _can_auto(self, area_name):
-        if not self.automation_enabled:
-            print(f"[CORE] Skip {area_name}: automation disabled")
+        if not self.auto_sequence_enabled:
+            print(f"[CORE] Skip {area_name}: auto sequence disabled")
             return False
         if self.is_answering or self.paused or not self.fast_mode:
             reason = ("answering" if self.is_answering else

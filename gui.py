@@ -327,7 +327,7 @@ class OpticalReaderSolverGUI:
         self.preview_canvas.pack()
         self.preview_img_tk = None
 
-        # ── Primary controls — Pause/Resume and Automation are the two
+        # ── Primary controls — Pause/Resume and the auto sequence are the two
         # actions that matter most, so they're the two largest buttons in
         # the app and nothing else competes with them for attention. ──────
         primary_card = self._card(root)
@@ -336,7 +336,7 @@ class OpticalReaderSolverGUI:
         self.pause_btn.pack(fill="x")
 
         self.auto_btn = self._button(
-            primary_card, "Automation\nEnabled", self._toggle_automation,
+            primary_card, "Auto Sequence\nEnabled", self._toggle_automation,
             kind="success", font=F_BODY_B)
         self.auto_btn.pack(fill="x", pady=(SP_2, 0))
 
@@ -599,38 +599,28 @@ class OpticalReaderSolverGUI:
         used by the manual toggle AND by the auto-pause-on-unconfirmed-clicks
         safety net, so both stay visually consistent.
         """
-        self.core.automation_enabled = enabled
+        self.core.auto_sequence_enabled = enabled
         if enabled:
-            self.auto_btn.config(text="Automation\nEnabled")
+            self.auto_btn.config(text="Auto Sequence\nEnabled")
             self._style_button(self.auto_btn, "success")
-            print("[GUI] Automation ENABLED")
+            print("[GUI] Auto sequence ENABLED")
         else:
             # Cancel any in-progress sequences immediately
             self.core.cancel_all_scheduled_events()
             self.core.extended_sequence_active = False
-            # A pending confirmation was waiting to see whether the click
-            # that started it landed — with automation now off, there's
-            # nothing further to click, so its timeout no longer means
-            # anything either. Drop it, and reset the streak too: manually
-            # turning automation off and back on is a deliberate action the
-            # user took specifically to reset the subsystem — carrying a
-            # partial unconfirmed-click count across that boundary means
-            # one more blip after re-enabling could trip the safety pause
-            # for clicks that happened before the user intervened at all.
-            self._pending_confirm_hash     = None
-            self._pending_confirm_deadline = None
-            self._consecutive_unconfirmed  = 0
-            self.auto_btn.config(text="Automation\nOff")
+            # Answer clicking remains enabled. Keep its confirmation state
+            # intact because this toggle controls only AUTO 1/2/3.
+            self.auto_btn.config(text="Auto Sequence\nOff")
             self._style_button(self.auto_btn, "muted_off")
             if reason:
                 self.set_auto_status(reason, "red")
             else:
                 self.set_auto_status("")
-            print(f"[GUI] Automation DISABLED — all sequences cancelled"
+            print(f"[GUI] Auto sequence DISABLED — all sequences cancelled"
                   + (f" ({reason})" if reason else ""))
 
     def _toggle_automation(self):
-        self._set_automation_enabled(not self.core.automation_enabled)
+        self._set_automation_enabled(not self.core.auto_sequence_enabled)
 
     def _toggle_preview(self):
         self.core.preview_enabled = not self.core.preview_enabled
