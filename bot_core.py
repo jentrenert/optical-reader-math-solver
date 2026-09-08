@@ -81,15 +81,38 @@ def s_bbox(bbox):
 
 
 def fast_click(x, y):
+    """Move to a screen coordinate and issue one left click.
+
+    The Win32 calls are fast, but their return values must be checked. A
+    failed ``SetCursorPos`` used to be indistinguishable from a successful
+    click, which made coordinate, elevation, and input-blocking problems look
+    like OCR failures. PyAutoGUI is used only as a fallback when Windows did
+    not place the cursor where requested.
     """
-    Bypass PyAutoGUI entirely for zero-latency hardware-level clicks.
-    Uses Windows API directly: SetCursorPos + mouse_event (down then up).
-    No Python overhead, no metric recalculation — the OS receives the input
-    in the same instruction cycle.
-    """
-    ctypes.windll.user32.SetCursorPos(int(x), int(y))
-    ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTDOWN
-    ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTUP
+    x, y = int(x), int(y)
+    if not (0 <= x < CURR_W and 0 <= y < CURR_H):
+        raise ValueError(f"click coordinate outside screen: ({x}, {y})")
+
+    user32 = ctypes.windll.user32
+    moved = bool(user32.SetCursorPos(x, y))
+    point = ctypes.wintypes.POINT()
+    read_position = bool(user32.GetCursorPos(ctypes.byref(point)))
+    reached = read_position and point.x == x and point.y == y
+
+    if not moved or not reached:
+        print(f"[CORE] Win32 cursor move failed: requested=({x}, {y}) "
+              f"actual=({point.x}, {point.y}) moved={moved}; using fallback")
+        pyautogui.moveTo(x, y, duration=0)
+        fallback = tuple(map(int, pyautogui.position()))
+        if fallback != (x, y):
+            raise RuntimeError(f"cursor did not reach ({x}, {y}); actual={fallback}")
+
+    down = user32.mouse_event(0x0002, 0, 0, 0, 0)  # MOUSEEVENTF_LEFTDOWN
+    up = user32.mouse_event(0x0004, 0, 0, 0, 0)    # MOUSEEVENTF_LEFTUP
+    if down is not None or up is not None:
+        # mouse_event returns void on Windows; this branch documents that the
+        # cursor verification above is the meaningful success signal.
+        print(f"[CORE] Click issued at ({x}, {y})")
 
 
 # ── Taskbar detection ────────────────────────────────────────────────────────
