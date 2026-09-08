@@ -517,7 +517,13 @@ class OpticalReaderSolverGUI:
         try:
             os.makedirs(OCR_CAPTURE_DIR, exist_ok=True)
             stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-            safe_text = re.sub(r"[^A-Za-z0-9+*/=-]+", "_", raw_text).strip("_")
+            safe_text = raw_text
+            for operator, name in {
+                "+": "_add_", "-": "_sub_", "*": "_mul_",
+                "/": "_div_", "=": "_eq_", ":": "_div_",
+            }.items():
+                safe_text = safe_text.replace(operator, name)
+            safe_text = re.sub(r"[^A-Za-z0-9_]+", "_", safe_text).strip("_")
             safe_text = (safe_text[:60] or "unknown")
             prefix = f"{stamp}_{safe_text}_answer-{answer}_{source}"
 
